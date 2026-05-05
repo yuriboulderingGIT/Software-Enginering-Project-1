@@ -10,13 +10,13 @@ import java.nio.file.StandardOpenOption;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class FileOutputStrategy implements OutputStrategy {
-
+    // Changed from BaseDirectory to baseDirectory - fields should use camelCase
     private String baseDirectory;
-
+     // Changed from file_map to fileMap - fields should use camelCase, no underscores
     public final ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<>();
 
     public FileOutputStrategy(String baseDirectory) {
-
+        
         this.baseDirectory = baseDirectory;
     }
 
@@ -29,7 +29,8 @@ public class FileOutputStrategy implements OutputStrategy {
             System.err.println("Error creating base directory: " + e.getMessage());
             return;
         }
-        // Set the FilePath variable
+        // Set the filePath variable
+        // Changed from FilePath to filePath - local variables should use camelCase
         String filePath = fileMap.computeIfAbsent(label, k -> Paths.get(baseDirectory, label + ".txt").toString());
 
         // Write the data to the file
