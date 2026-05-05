@@ -1,3 +1,5 @@
+//package name uses underscore (name of the folder) which should be camelCase
+
 package com.cardio_generator.outputs;
 
 import java.io.IOException;
