@@ -6,10 +6,27 @@ import java.util.Random;
 
 import com.cardio_generator.outputs.OutputStrategy;
 
+
+/**
+ * Simulates alert events for patients in the health data monitoring system.
+ * Each patient can have an alert either active or inactive. Active alerts
+ * have a 90% chance of resolving on each call. If no alert is active, a new
+ * one may be triggered based on a probability calculated from a Poisson process.
+ */
+
 public class AlertGenerator implements PatientDataGenerator {
 
     public static final Random randomGenerator = new Random();
+    /** Tracks the current alert state per patient. True means an alert is active. */
     private boolean[] alertStates; // false = resolved, true = pressed
+
+
+    /**
+     * Constructs an AlertGenerator for the given number of patients.
+     * All patients start with no active alerts.
+     *
+     * @param patientCount the total number of patients to track
+     */
 
     public AlertGenerator(int patientCount) {
         // Changed from AlertStates to alertStates - non-constant fields must use lowerCamelCase (change all occurances)
@@ -17,6 +34,17 @@ public class AlertGenerator implements PatientDataGenerator {
     }
 
     @Override
+
+     /**
+     * Generates an alert event for the specified patient and sends it to the output strategy.
+     *
+     * <p>If an alert is active, there is a 90% chance it will be resolved.
+     * Otherwise, a new alert may be triggered based on the calculated probability.
+     *
+     * @param patientId      the unique identifier of the patient
+     * @param outputStrategy the output strategy to receive the alert event
+     */
+    
     public void generate(int patientId, OutputStrategy outputStrategy) {
         try {
             if (alertStates[patientId]) {
