@@ -1,5 +1,6 @@
 package com.alerts;
 
+import com.alerts.AlertGenerator;
 import com.data_management.DataStorage;
 import com.data_management.Patient;
 import org.junit.jupiter.api.BeforeEach;

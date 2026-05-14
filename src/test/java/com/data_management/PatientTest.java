@@ -3,6 +3,9 @@ package com.data_management;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.data_management.Patient;
+import com.data_management.PatientRecord;
+
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
