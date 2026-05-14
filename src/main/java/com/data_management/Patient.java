@@ -2,6 +2,7 @@ package com.data_management;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Represents a patient and manages their medical records.
@@ -10,8 +11,9 @@ import java.util.List;
  * of medical records based on specified criteria.
  */
 public class Patient {
-    private int patientId;
-    private List<PatientRecord> patientRecords;
+
+    private final int patientId;
+    private final List<PatientRecord> patientRecords;
 
     /**
      * Constructs a new Patient with a specified ID.
@@ -36,8 +38,7 @@ public class Patient {
      *                         milliseconds since UNIX epoch
      */
     public void addRecord(double measurementValue, String recordType, long timestamp) {
-        PatientRecord record = new PatientRecord(this.patientId, measurementValue, recordType, timestamp);
-        this.patientRecords.add(record);
+        patientRecords.add(new PatientRecord(patientId, measurementValue, recordType, timestamp));
     }
 
     /**
@@ -52,7 +53,21 @@ public class Patient {
      *         range
      */
     public List<PatientRecord> getRecords(long startTime, long endTime) {
-        // TODO Implement and test this method
-        return new ArrayList<>();
+        return patientRecords.stream()
+                .filter(r -> r.getTimestamp() >= startTime && r.getTimestamp() <= endTime)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns all records for this patient regardless of time.
+     *
+     * @return a copy of all patient records
+     */
+    public List<PatientRecord> getAllRecords() {
+        return new ArrayList<>(patientRecords);
+    }
+
+    public int getPatientId() {
+        return patientId;
     }
 }
