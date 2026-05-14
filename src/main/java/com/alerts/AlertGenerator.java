@@ -24,6 +24,8 @@ public class AlertGenerator {
         this.dataStorage = dataStorage;
     }
 
+
+
     /**
      * Evaluates the specified patient's data to determine if any alert conditions
      * are met. If a condition is met, an alert is triggered via the
@@ -37,6 +39,9 @@ public class AlertGenerator {
     public void evaluateData(Patient patient) {
         // Implementation goes here
     }
+
+
+
 
     /**
      * Triggers an alert for the monitoring system. This method can be extended to
