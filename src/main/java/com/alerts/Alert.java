@@ -1,7 +1,7 @@
 package com.alerts;
 
 // Represents an alert
-public class Alert {
+public class Alert implements AlertInterface {
     private String patientId;
     private String condition;
     private long timestamp;

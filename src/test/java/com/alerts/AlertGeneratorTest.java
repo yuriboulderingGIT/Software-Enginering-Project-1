@@ -23,7 +23,8 @@ class AlertGeneratorTest {
 
     @BeforeEach
     void setUp() {
-        storage = new DataStorage();
+        DataStorage.resetForTesting();
+        storage = DataStorage.getInstance();
         alertGenerator = new AlertGenerator(storage);
         // Capture System.out so we can assert on triggered alerts
         output = new ByteArrayOutputStream();

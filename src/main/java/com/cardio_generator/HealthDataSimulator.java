@@ -33,6 +33,15 @@ import java.util.ArrayList;
 
 public class HealthDataSimulator {
 
+    private static HealthDataSimulator instance;
+
+    public static synchronized HealthDataSimulator getInstance() {
+        if (instance == null) {
+            instance = new HealthDataSimulator();
+        }
+        return instance;
+    }
+
     private static int patientCount = 50; // Default number of patients
 
     /** Runs all the scheduled data generation tasks. */

@@ -21,7 +21,8 @@ class FileDataReaderTest {
 
     @BeforeEach
     void setUp() {
-        storage = new DataStorage();
+        DataStorage.resetForTesting();
+        storage = DataStorage.getInstance();
     }
 
     private void writeFile(String name, String content) throws IOException {
