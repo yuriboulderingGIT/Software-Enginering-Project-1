@@ -1,5 +1,9 @@
 package com.alerts;
 
+import com.alerts.strategy.AlertStrategy;
+import com.alerts.strategy.BloodPressureStrategy;
+import com.alerts.strategy.OxygenSaturationStrategy;
+import com.alerts.strategy.HeartRateStrategy;
 import com.data_management.DataStorage;
 import com.data_management.Patient;
 import com.data_management.PatientRecord;
