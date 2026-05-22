@@ -67,6 +67,11 @@ public class Patient {
         return new ArrayList<>(patientRecords);
     }
 
+    /**
+     * Returns the unique identifier for this patient.
+     *
+     * @return the patient ID as an integer
+     */
     public int getPatientId() {
         return patientId;
     }

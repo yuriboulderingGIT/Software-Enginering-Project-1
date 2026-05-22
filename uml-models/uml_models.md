@@ -10,10 +10,51 @@ along with a written rationale for each design.
 ```mermaid
 classDiagram
     class AlertGenerator {
-        -DataStorage storage
-        -AlertManager manager
-        +evaluateData(patientId: String) void
-        +triggerAlert(alert: Alert) void
+        -DataStorage dataStorage
+        -List~AlertStrategy~ strategies
+        +evaluateData(patient: Patient) void
+        +setStrategies(strategies: List~AlertStrategy~) void
+    }
+
+    class AlertStrategy {
+        <<interface>>
+        +checkAlert(patient: Patient) List~Alert~
+    }
+
+    class BloodPressureStrategy {
+        +checkAlert(patient: Patient) List~Alert~
+    }
+
+    class OxygenSaturationStrategy {
+        +checkAlert(patient: Patient) List~Alert~
+    }
+
+    class HeartRateStrategy {
+        +checkAlert(patient: Patient) List~Alert~
+    }
+
+    class AlertFactory {
+        <<abstract>>
+        +createAlert(patientId: String, condition: String, timestamp: long) Alert
+    }
+
+    class BloodPressureAlertFactory {
+        +createAlert(patientId: String, condition: String, timestamp: long) Alert
+    }
+
+    class BloodOxygenAlertFactory {
+        +createAlert(patientId: String, condition: String, timestamp: long) Alert
+    }
+
+    class ECGAlertFactory {
+        +createAlert(patientId: String, condition: String, timestamp: long) Alert
+    }
+
+    class AlertInterface {
+        <<interface>>
+        +getPatientId() String
+        +getCondition() String
+        +getTimestamp() long
     }
 
     class Alert {
@@ -25,63 +66,66 @@ classDiagram
         +getTimestamp() long
     }
 
-    class AlertManager {
-        -List~Alert~ activeAlerts
-        +dispatch(alert: Alert) void
-        +notifyStaff(alert: Alert) void
-        +getActiveAlerts() List~Alert~
-        +resolveAlert(alertId: String) void
+    class AlertDecorator {
+        <<abstract>>
+        -AlertInterface wrappedAlert
+        +getPatientId() String
+        +getCondition() String
+        +getTimestamp() long
     }
 
-    class AlertThreshold {
-        -String patientId
-        -String metricType
-        -double minValue
-        -double maxValue
-        +isBreached(value: double) boolean
-        +getMetricType() String
+    class RepeatedAlertDecorator {
+        -int repeatCount
+        +getCondition() String
+        +getRepeatCount() int
     }
 
-    class DataStorage {
-        -Map~String, Patient~ patients
-        +getRecords(patientId: String) List~PatientRecord~
-        +addRecord(record: PatientRecord) void
+    class PriorityAlertDecorator {
+        -String priorityLevel
+        +getCondition() String
+        +getPriorityLevel() String
     }
 
-    AlertGenerator --> DataStorage : reads from
-    AlertGenerator --> AlertThreshold : checks
-    AlertGenerator ..> Alert : creates
-    AlertGenerator --> AlertManager : dispatches to
-    Alert --> AlertManager : sent to
+    AlertGenerator "1" --> "1..*" AlertStrategy : uses list of
+    AlertStrategy <|.. BloodPressureStrategy : implements
+    AlertStrategy <|.. OxygenSaturationStrategy : implements
+    AlertStrategy <|.. HeartRateStrategy : implements
+    BloodPressureStrategy --> AlertFactory : uses
+    OxygenSaturationStrategy --> AlertFactory : uses
+    HeartRateStrategy --> AlertFactory : uses
+    AlertFactory <|-- BloodPressureAlertFactory : extends
+    AlertFactory <|-- BloodOxygenAlertFactory : extends
+    AlertFactory <|-- ECGAlertFactory : extends
+    AlertFactory ..> Alert : creates
+    AlertInterface <|.. Alert : implements
+    AlertInterface <|.. AlertDecorator : implements
+    AlertDecorator <|-- RepeatedAlertDecorator : extends
+    AlertDecorator <|-- PriorityAlertDecorator : extends
+    AlertDecorator "1" --> "1" AlertInterface : wraps
 ```
 
 ### Rationale
 
-The Alert Generation System is responsible for checking incoming patient data and sending
-alerts to medical staff when something looks wrong. The design is split into five classes,
-each doing its own specific job so nothing gets too complicated.
+When evaluateData() is called on AlertGenerator, it loops through its list of AlertStrategy
+objects and calls checkAlert() on each one, collecting the Alert objects they return. Any
+alerts that come back get passed to triggerAlert(), which prints them to the console. There
+is also a small inline check for manual alerts (record type "Alert", value 1.0) that runs
+directly in evaluateData() rather than going through a strategy.
 
-`AlertGenerator` is the main class of this subsystem. It connects to both `DataStorage` (to
-get patient records) and `AlertManager` (to send out alerts). The `evaluateData` method is
-where everything starts. It reads the records for a patient, checks them against the defined
-thresholds, and calls `triggerAlert` if something is wrong. Keeping all this logic in one
-place makes it easier to update later if needed.
+Each strategy uses its own AlertFactory subclass to build the alerts it produces.
+BloodPressureStrategy uses BloodPressureAlertFactory, OxygenSaturationStrategy uses
+BloodOxygenAlertFactory, and HeartRateStrategy uses ECGAlertFactory. The factory prepends a
+type prefix to the condition string so it is clear what kind of alert was raised. Because
+each strategy only depends on the abstract AlertFactory type, swapping in a different factory
+does not require changing the strategy.
 
-`AlertThreshold` stores the alert rules for each patient, like a heart rate limit that is
-specific to one patient. Instead of writing those limits directly into `AlertGenerator`, we
-put them in their own class so new rules can be added without touching the evaluation logic.
-The `isBreached` method handles the actual comparison, which keeps things clean.
-
-`Alert` is basically just a container. It holds the patient ID, what condition was detected,
-and when it happened. Keeping it simple means it can be passed around between classes easily.
-
-`AlertManager` takes care of notifying the medical staff and keeping track of active alerts.
-By separating this from `AlertGenerator`, the two parts can be changed independently. For
-example, how staff get notified (email, screen, pager) can be changed inside `AlertManager`
-without breaking anything in `AlertGenerator`.
-
-`DataStorage` is included here to show how this subsystem connects to the data storage
-subsystem described in diagram 2.
+Alert and AlertDecorator both implement AlertInterface, which is what makes the decorator
+pattern work here. AlertDecorator holds a reference to any AlertInterface object and
+delegates all three getter calls to it. RepeatedAlertDecorator overrides getCondition() to
+append a repeat count in the format "[Repeated xN]". PriorityAlertDecorator overrides it to
+prepend "[PRIORITY]". Because both decorators go through the same interface, they can be
+stacked on top of each other in any order, and the outermost one's getCondition() returns the
+fully combined string.
 
 ---
 
@@ -90,79 +134,64 @@ subsystem described in diagram 2.
 ```mermaid
 classDiagram
     class DataStorage {
-        -Map~String, Patient~ patients
-        -AccessController accessController
-        +addRecord(record: PatientRecord) void
-        +getRecords(patientId: String, start: long, end: long) List~PatientRecord~
-        +deleteOldRecords(cutoffTime: long) void
+        -DataStorage instance
+        -Map~Integer, Patient~ patientMap
+        -DataStorage()
         +getInstance() DataStorage
+        +resetForTesting() void
+        +addPatientData(patientId: int, value: double, type: String, timestamp: long) void
+        +getRecords(patientId: int, startTime: long, endTime: long) List~PatientRecord~
+        +getAllPatients() List~Patient~
     }
 
     class Patient {
-        -String patientId
-        -List~PatientRecord~ records
-        +addRecord(record: PatientRecord) void
-        +getRecords(start: long, end: long) List~PatientRecord~
-        +getPatientId() String
+        -int patientId
+        -List~PatientRecord~ patientRecords
+        +addRecord(value: double, type: String, timestamp: long) void
+        +getRecords(startTime: long, endTime: long) List~PatientRecord~
+        +getAllRecords() List~PatientRecord~
+        +getPatientId() int
     }
 
     class PatientRecord {
-        -String patientId
+        -int patientId
         -String recordType
         -double measurementValue
         -long timestamp
-        +getValue() double
-        +getType() String
+        +getPatientId() int
+        +getMeasurementValue() double
+        +getRecordType() String
         +getTimestamp() long
-    }
-
-    class DataRetriever {
-        -DataStorage storage
-        +queryByPatient(patientId: String) List~PatientRecord~
-        +queryByTimeRange(patientId: String, start: long, end: long) List~PatientRecord~
-        +queryByType(patientId: String, type: String) List~PatientRecord~
-    }
-
-    class AccessController {
-        -List~String~ authorisedRoles
-        +canRead(role: String) boolean
-        +canWrite(role: String) boolean
-        +logAccess(role: String, action: String) void
     }
 
     DataStorage "1" --> "many" Patient : stores
     Patient "1" --> "many" PatientRecord : contains
-    DataRetriever --> DataStorage : queries
-    DataStorage --> AccessController : uses
 ```
 
 ### Rationale
 
-The Data Storage System is responsible for safely storing all incoming patient records and
-making them available for both real-time monitoring and looking back at historical data. The
-design focuses on keeping data organised, secure, and easy to clean up over time.
+DataStorage is a Singleton. The constructor is private, so nothing outside the class can
+create an instance directly. getInstance() creates the object on the first call and returns
+the same object on every subsequent call. addPatientData() is declared synchronized, meaning
+only one thread can write at a time. This matters because the WebSocket client and any other
+data sources run on separate threads and will call addPatientData() concurrently.
 
-`DataStorage` is the main class here and is set up as a singleton using `getInstance`, which
-means only one instance of it exists across the whole application. This keeps the data
-consistent everywhere. It maps patient IDs to `Patient` objects and uses `AccessController`
-to handle permissions. The `deleteOldRecords` method removes data older than a set time,
-which stops the system from running out of memory.
+When a new reading arrives, addPatientData() looks up the Patient object by integer ID. If
+no Patient exists yet for that ID, it creates one and adds it to the map. Then it calls
+addRecord() on the Patient to attach the new PatientRecord. getAllPatients() returns a copy
+of the values in the map, so callers cannot accidentally modify the internal storage.
 
-`Patient` groups all the records for one person together. Instead of dumping everything into
-one big list, organising records by patient makes it much faster to find what you need. The
-`getRecords` method lets you filter by a time range, which is useful for spotting trends.
+Patient stores its records in an ArrayList. getRecords() filters that list using a stream,
+keeping only records whose timestamp falls between startTime and endTime inclusive. This is
+used throughout the alert strategies to pull only the relevant type of reading for a patient.
+getAllRecords() returns everything without any time filter and is mainly used in tests.
 
-`PatientRecord` represents one single measurement at a specific point in time, like a blood
-pressure reading. It only stores what is actually needed: the patient ID, the type of
-reading, the value, and the timestamp. Keeping it simple makes it easy to work with.
+PatientRecord holds exactly one measurement: a type string (for example "SystolicPressure"
+or "ECG"), a double value, and a millisecond timestamp. It also stores the patient ID so the
+record is self-contained and can be passed around without needing the Patient object.
 
-`DataRetriever` gives medical staff a way to query data without touching the internal storage
-logic directly. This means the storage structure can change later without breaking how staff
-access data.
-
-`AccessController` controls who can read or write data and logs every access. Patient data is
-very sensitive, so having a dedicated class for this makes sure access checks cannot be
-skipped by accident.
+resetForTesting() sets the singleton field to null so that each unit test starts with a
+completely empty DataStorage rather than inheriting data from a previous test.
 
 ---
 
@@ -173,76 +202,84 @@ classDiagram
     class PatientIdentifier {
         -PatientDatabase database
         -IdentityManager identityManager
-        +matchPatient(incomingId: String) HospitalPatient
+        +matchPatient(incomingId: String) Patient
         +validateId(patientId: String) boolean
         +handleMismatch(patientId: String) void
     }
 
-    class HospitalPatient {
-        -String patientId
-        -String name
-        -String dateOfBirth
-        -String ward
-        -List~String~ medicalHistory
-        +getPatientId() String
-        +getName() String
-        +getWard() String
+    class Patient {
+        -int patientId
+        -List~PatientRecord~ patientRecords
+        +addRecord(value: double, type: String, timestamp: long) void
+        +getRecords(startTime: long, endTime: long) List~PatientRecord~
+        +getAllRecords() List~PatientRecord~
+        +getPatientId() int
+    }
+
+    class PatientRecord {
+        -int patientId
+        -String recordType
+        -double measurementValue
+        -long timestamp
+        +getPatientId() int
+        +getMeasurementValue() double
+        +getRecordType() String
+        +getTimestamp() long
     }
 
     class PatientDatabase {
-        -Map~String, HospitalPatient~ records
-        +findById(patientId: String) HospitalPatient
+        -Map~String, Patient~ records
+        +findById(patientId: String) Patient
         +exists(patientId: String) boolean
-        +addPatient(patient: HospitalPatient) void
+        +addPatient(patient: Patient) void
     }
 
     class IdentityManager {
         -List~String~ mismatchLog
         +registerMismatch(patientId: String) void
         +getMismatchLog() List~String~
-        +resolveIdentity(patientId: String) HospitalPatient
+        +resolveIdentity(patientId: String) Patient
     }
 
     class MismatchHandler {
         +logError(patientId: String, reason: String) void
         +escalate(patientId: String) void
-        +suggestMatch(patientId: String) HospitalPatient
+        +suggestMatch(patientId: String) Patient
     }
 
     PatientIdentifier --> PatientDatabase : looks up
     PatientIdentifier --> IdentityManager : reports to
-    PatientDatabase "1" --> "many" HospitalPatient : stores
+    PatientDatabase "1" --> "many" Patient : stores
+    Patient "1" --> "many" PatientRecord : contains
     IdentityManager --> MismatchHandler : delegates to
 ```
 
 ### Rationale
 
-The Patient Identification System makes sure that every data reading coming from the signal
-generator gets matched to the correct patient record. Getting this wrong in a hospital setting
-could be really dangerous, so the design puts a lot of focus on validation and handling errors
-properly.
+This diagram shows how an incoming data reading gets matched to the correct patient record.
+PatientIdentifier is the entry point. When a reading arrives, it calls validateId() to check
+the format before doing anything else. If the ID looks valid, it calls findById() on
+PatientDatabase to get the matching Patient object. If nothing comes back, it passes the ID
+to handleMismatch() rather than silently dropping the reading.
 
-`PatientIdentifier` is the starting point for this subsystem. Every time a new reading comes
-in, it calls `matchPatient` to find the right `HospitalPatient` in the database. It also has
-a `validateId` method to check that the incoming ID looks correct before even trying to look
-it up. If no match is found, it calls `handleMismatch` instead of just throwing the data away
-quietly.
+Patient and PatientRecord here reflect the actual implementation. Patient holds an int
+patientId and a list of PatientRecord objects. addRecord() creates a new PatientRecord and
+appends it to that list. getRecords() filters the list by timestamp range with inclusive
+boundaries on both ends, so callers get back exactly the records that fall inside the window
+they ask for. getPatientId() returns the int ID so other classes can identify which patient
+a record belongs to.
 
-`HospitalPatient` holds the actual hospital record for a patient, including their name, date
-of birth, ward, and medical history. This class is only read from in this subsystem, never
-written to. The identification layer should not be changing patient records.
+PatientRecord is a plain value object. It stores the patient ID, a record type string, a
+numeric measurement value, and a millisecond timestamp. All four fields are set in the
+constructor and exposed through getters. Nothing in PatientRecord changes after construction.
 
-`PatientDatabase` is where all the hospital patient records are stored. It is kept separate
-from `DataStorage` on purpose because patient identity and patient measurements are two
-different things. Mixing them together would make the code harder to manage and less secure.
+PatientDatabase acts as a registry that maps IDs to Patient objects. Keeping this separate
+from the main DataStorage means identity lookups do not go through the same path as data
+writes, which keeps the two concerns independent.
 
-`IdentityManager` keeps track of any mismatches that happen and tries to sort them out. By
-putting this logic in its own class rather than inside `PatientIdentifier`, it is easier to
-review and audit what went wrong.
-
-`MismatchHandler` deals with the tricky edge cases, like logging what went wrong, alerting
-staff about unresolved issues, and suggesting possible matches when there is partial data.
-Keeping this separate makes `IdentityManager` simpler and easier to maintain.
+IdentityManager tracks cases where an ID could not be matched. When it cannot resolve an
+identity automatically, it hands the problem to MismatchHandler, which can log the error,
+alert staff, or suggest a close match based on partial information.
 
 ---
 
@@ -250,88 +287,67 @@ Keeping this separate makes `IdentityManager` simpler and easier to maintain.
 
 ```mermaid
 classDiagram
-    class DataListener {
+    class DataReader {
         <<interface>>
-        +connect() void
-        +disconnect() void
-        +startListening() void
-        +onDataReceived(raw: String) void
+        +readData(dataStorage: DataStorage) void
+        +startStreaming(dataStorage: DataStorage) void
     }
 
-    class TCPDataListener {
-        -String host
-        -int port
-        -Socket socket
-        +connect() void
-        +disconnect() void
-        +startListening() void
-        +onDataReceived(raw: String) void
-    }
-
-    class WebSocketDataListener {
-        -String url
-        -WebSocketClient client
-        +connect() void
-        +disconnect() void
-        +startListening() void
-        +onDataReceived(raw: String) void
-    }
-
-    class FileDataListener {
+    class FileDataReader {
         -String directoryPath
-        -File outputFile
+        +readData(dataStorage: DataStorage) void
+    }
+
+    class WebSocketClientImpl {
+        -DataStorage dataStorage
+        -boolean intentionallyClosed
+        +readData(dataStorage: DataStorage) void
+        +startStreaming(dataStorage: DataStorage) void
+        +stopStreaming() void
+        +onOpen(handshake: ServerHandshake) void
+        +onMessage(message: String) void
+        +onClose(code: int, reason: String, remote: boolean) void
+        +onError(ex: Exception) void
+    }
+
+    class WebSocketClient {
         +connect() void
-        +disconnect() void
-        +startListening() void
-        +onDataReceived(raw: String) void
+        +close() void
+        +reconnect() void
+        +isOpen() boolean
     }
 
-    class DataParser {
-        +parse(raw: String) PatientRecord
-        +isValid(raw: String) boolean
-        +extractPatientId(raw: String) String
+    class DataStorage {
+        +addPatientData(patientId: int, value: double, type: String, timestamp: long) void
     }
 
-    class DataSourceAdapter {
-        -DataParser parser
-        -DataStorage storage
-        +handleIncoming(raw: String) void
-        +forwardToStorage(record: PatientRecord) void
-    }
-
-    DataListener <|.. TCPDataListener : implements
-    DataListener <|.. WebSocketDataListener : implements
-    DataListener <|.. FileDataListener : implements
-    TCPDataListener --> DataSourceAdapter : forwards to
-    WebSocketDataListener --> DataSourceAdapter : forwards to
-    FileDataListener --> DataSourceAdapter : forwards to
-    DataSourceAdapter --> DataParser : uses
-    DataSourceAdapter --> DataStorage : stores into
+    DataReader <|.. FileDataReader : implements
+    DataReader <|.. WebSocketClientImpl : implements
+    WebSocketClient <|-- WebSocketClientImpl : extends
+    WebSocketClientImpl --> DataStorage : writes to
+    FileDataReader --> DataStorage : writes to
 ```
 
 ### Rationale
 
-The Data Access Layer is basically the connector between the external signal generator and the
-rest of the CHMS. Its job is to hide how data actually arrives, whether that is TCP, WebSocket,
-or a file, so the rest of the system does not have to care about those details.
+DataReader is an interface with two methods. readData() is for one-shot reads where the
+caller blocks until all data has been loaded. startStreaming() is for real-time sources that
+run continuously. The interface provides a default no-op implementation of startStreaming(),
+so FileDataReader does not need to override it.
 
-`DataListener` is an interface that defines four methods all listeners must have: `connect`,
-`disconnect`, `startListening`, and `onDataReceived`. All three listener classes implement
-this, which means any other part of the system only needs to know about `DataListener` and not
-the specifics of each transport type. This also makes it easy to add a new data source in the
-future without changing anything else.
+FileDataReader takes a directory path in its constructor and scans that directory for .txt
+files when readData() is called. For each file it finds, it reads line by line and parses the
+format "patientId, timestamp, label, value". Lines with the wrong number of fields, a
+non-numeric patient ID, or a non-numeric value are skipped with a warning message. The read
+continues for all remaining lines rather than stopping on the first error.
 
-`TCPDataListener` handles data coming in over a TCP connection. `WebSocketDataListener`
-handles WebSocket connections, which is directly relevant to parts 4 and 5 of this project.
-`FileDataListener` reads from the file output that the simulator generates when you use the
-`--output file:<dir>` argument. Each listener only stores the fields it actually needs for its
-own transport type.
-
-`DataParser` is a shared class that takes the raw string data from any of the listeners and
-turns it into a proper `PatientRecord` object. Having one class handle all the parsing means
-the format is always consistent no matter where the data came from, and you only need to write
-and test the parsing logic once.
-
-`DataSourceAdapter` sits in between the listeners and `DataStorage`. It takes the raw data,
-passes it to `DataParser`, checks the result is valid, and then saves it to `DataStorage`.
-This keeps transport logic, parsing, and storage all nicely separated from each other.
+WebSocketClientImpl connects to a WebSocket server to receive patient data in real time. It
+extends the Java-WebSocket library's WebSocketClient class to get the underlying connection
+handling, and it also implements DataReader so it can be used anywhere a DataReader is
+expected. Calling startStreaming() connects to the server and returns immediately. Data then
+arrives asynchronously through onMessage(), which splits the message on commas, checks that
+there are exactly four fields, parses the patient ID and value as numbers, and calls
+addPatientData() on DataStorage. Any message that does not fit that format gets logged and
+skipped. If the server closes the connection without the client asking it to, onClose() calls
+reconnect(). If the application itself closes the connection by calling stopStreaming(), the
+intentionallyClosed flag is set first so onClose() knows not to reconnect.

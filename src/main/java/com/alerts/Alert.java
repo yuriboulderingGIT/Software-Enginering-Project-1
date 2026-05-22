@@ -12,14 +12,29 @@ public class Alert implements AlertInterface {
         this.timestamp = timestamp;
     }
 
+    /**
+     * Returns the unique identifier of the patient associated with this alert.
+     *
+     * @return the patient ID as a String
+     */
     public String getPatientId() {
         return patientId;
     }
 
+    /**
+     * Returns the condition description that triggered this alert.
+     *
+     * @return the condition string
+     */
     public String getCondition() {
         return condition;
     }
 
+    /**
+     * Returns the time at which this alert was generated.
+     *
+     * @return the timestamp in milliseconds since the Unix epoch
+     */
     public long getTimestamp() {
         return timestamp;
     }

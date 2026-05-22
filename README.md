@@ -66,9 +66,32 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 
 ## UML Models
-See the [UML diagrams here](uml_models/uml_models.md)
+See the [UML diagrams here](uml-models/uml_models.md)
 The UML diagrams are automatically rendered when viewed through GitHub.
 
+## Part 4 - Design Patterns
+Implemented four design patterns across the alert subsystem. The Factory Method pattern
+was applied through an abstract AlertFactory and three concrete subclasses that produce
+typed alerts. The Strategy pattern replaced hardcoded alert logic in AlertGenerator with
+a pluggable list of AlertStrategy implementations. The Decorator pattern allows alerts to
+be wrapped with priority and repeat-count metadata. The Singleton pattern was applied to
+DataStorage and HealthDataSimulator to ensure a single shared instance is used throughout
+the application.
+
+## Part 5 - Real-Time Data Processing
+Extended the DataReader interface with a default startStreaming() method and implemented
+WebSocketClientImpl, which extends the Java-WebSocket library client and implements
+DataReader. The client connects to a WebSocket server, parses incoming messages in the
+format patientId,timestamp,label,value, and stores them in DataStorage in real time.
+Malformed messages are logged and skipped. Unexpected disconnections trigger an automatic
+reconnect attempt.
+
+## AI Assistance
+I have used the assistance of AI for this project.
+AI was primarily used to help with documentation for Parts 4 and 5,
+assist in writing unit tests, and to better understand the course
+concepts such as design patterns and how the different components of
+the system interact with each other.
 
 ## Project Members
  - Student ID: i6443157 

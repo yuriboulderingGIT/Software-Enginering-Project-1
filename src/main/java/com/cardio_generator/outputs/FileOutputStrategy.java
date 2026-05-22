@@ -17,11 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class FileOutputStrategy implements OutputStrategy {
      /** The folder where all output files will be saved. */
-    // Changed from BaseDirectory to baseDirectory - fields should use camelCase
+    // Changed from BaseDirectory to baseDirectory - fields should use camelCase per Google Java Style Guide
     private String baseDirectory;
 
      /** Maps each label to its output file path so each label always writes to the same file. */
-     // Changed from file_map to fileMap - fields should use camelCase, no underscores
+     // Changed from file_map to fileMap - fields should use camelCase, no underscores per Google Java Style Guide
     public final ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<>();
 
 
@@ -35,8 +35,6 @@ public class FileOutputStrategy implements OutputStrategy {
         this.baseDirectory = baseDirectory;
     }
 
-    @Override
-    
     /**
      * Writes a patient data record to the file for the given label.
      * Format: Patient ID: X, Timestamp: Y, Label: Z, Data: W
@@ -46,7 +44,7 @@ public class FileOutputStrategy implements OutputStrategy {
      * @param label     the data category, also used as the filename
      * @param data      the value of the data record
      */
-
+    @Override
     public void output(int patientId, long timestamp, String label, String data) {
         try {
             // Create the directory
@@ -56,7 +54,7 @@ public class FileOutputStrategy implements OutputStrategy {
             return;
         }
         // Set the filePath variable
-        // Changed from FilePath to filePath - local variables should use camelCase
+        // Changed from FilePath to filePath - local variables should use camelCase per Google Java Style Guide
         String filePath = fileMap.computeIfAbsent(label, k -> Paths.get(baseDirectory, label + ".txt").toString());
 
         // Write the data to the file
